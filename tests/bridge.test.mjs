@@ -47,3 +47,21 @@ test('MCP standard client discovers tools and calls the actual native bridge',as
    const denied=await client.callTool({name:'cursor_grab',arguments:{}});assert.equal(denied.isError,true);
  }finally{await client.close();}
 });
+
+test('Claude and DSH heartbeats preserve manual state, reset on changes and recover after watchdog', async () => {
+  for (const source of ['claude', 'dsh']) {
+    await request({ action: 'state', state: 'think', source });
+    await request({ action: 'state', state: 'sleep' });
+    await request({ action: 'state', state: 'think', source });
+    assert.equal((await request({ action: 'status' })).result.state, 'sleep');
+    await request({ action: 'state', state: 'working', source });
+    assert.equal((await request({ action: 'status' })).result.state, 'working');
+    await request({ action: 'state', state: 'wait', source });
+  }
+  // The watchdog runs on a two-second UI timer, strictly after eight seconds.
+  await new Promise(resolve => setTimeout(resolve, 10500));
+  assert.equal((await request({ action: 'status' })).result.state, 'idle');
+  await request({ action: 'state', state: 'wait', source: 'claude' });
+  assert.equal((await request({ action: 'status' })).result.state, 'wait');
+  await request({ action: 'state', state: 'idle', source: 'claude' });
+});

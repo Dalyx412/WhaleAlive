@@ -14,6 +14,7 @@ public partial class MainWindow : Window
     readonly EmergencyStop killSwitch;
     readonly PipeBridge bridge;
     readonly DshProgress dshProgress=new();
+    string? lastAgentState;
     readonly System.Windows.Threading.DispatcherTimer idleTimer = new() { Interval = TimeSpan.FromSeconds(2) };
     DateTime lastActivity = DateTime.Now, lastWander = DateTime.Now, lastDsh = DateTime.MinValue;
     List<DesktopIcon> allIcons = new();
@@ -32,13 +33,14 @@ public partial class MainWindow : Window
         engine.Changed+=()=>{lastActivity=DateTime.Now;if(IsLoaded&&IsVisible&&!engine.Busy&&!pet.IsDragging)RefreshIcons();};
         quickMenu = new(pet, engine, companion, ShowSettings, ExitApplication);
         pet.Grabbed += engine.Stop; pet.OpenMenu += quickMenu.Open;
+        pet.Dropped += () => engine.SetAmbient(engine.AmbientState);
         pet.Clicked+=()=>pet.ShowTaskProgress(dshProgress.Text);
         killSwitch = new(() => Dispatcher.BeginInvoke(() => engine.Stop()));
         bridge = new(HandleCommand);
         idleTimer.Tick += async (_, _) =>
         {
             pet.RefreshTaskProgress(dshProgress.Text);
-            if (lastDsh != DateTime.MinValue && (DateTime.Now - lastDsh).TotalSeconds > 8) { lastDsh = DateTime.MinValue; engine.SetAmbient("idle"); }
+            if (lastDsh != DateTime.MinValue && (DateTime.Now - lastDsh).TotalSeconds > 8) { lastDsh = DateTime.MinValue; lastAgentState = null; companion.OnDsh("idle"); engine.SetAmbient("idle"); }
             if (!companion.Autonomy.IdleEnabled || companion.Autonomy.Running || engine.Busy || engine.AmbientBusy || pet.IsDragging || pet.IsPressing || pet.IsMenuOpen || engine.AmbientState != "idle") return;
             if ((DateTime.Now - lastActivity).TotalSeconds < 16 || (DateTime.Now - lastWander).TotalSeconds < (engine.Quiet ? 50 : 18)) return;
             try
@@ -103,7 +105,21 @@ public partial class MainWindow : Window
             case "undo": await engine.Undo(); RefreshIcons(); return new { undone = true };
             case "cursor": await engine.GrabCursor(); return new { released = true };
             case "say": var text = cmd.GetProperty("text").GetString() ?? ""; pet.Say(text[..Math.Min(80, text.Length)]); return new { spoken = true };
-            case "state": var state = cmd.GetProperty("state").GetString()!; if (!new[] { "idle", "think", "working", "wait", "celebrate", "sleep", "error" }.Contains(state)) throw new ArgumentException("不支持的状态"); engine.SetAmbient(state); if (cmd.TryGetProperty("source", out var source) && source.GetString() == "dsh") { companion.OnDsh(state); lastDsh = DateTime.Now;dshProgress.Receive(state);pet.RefreshTaskProgress(dshProgress.Text); } return new { state };
+            case "state":
+                var state = cmd.GetProperty("state").GetString()!;
+                if (!new[] { "idle", "think", "working", "wait", "celebrate", "sleep", "error" }.Contains(state)) throw new ArgumentException("不支持的状态");
+                if (cmd.TryGetProperty("source", out var source) && source.GetString() is "dsh" or "claude")
+                {
+                    // Busy actions and dropping restore AmbientState. An unchanged heartbeat
+                    // only refreshes liveness, preserving a manual pet_state override.
+                    if (lastAgentState != state) engine.SetAmbient(state);
+                    lastAgentState = state;
+                    companion.OnDsh(state); lastDsh = DateTime.Now;
+                    dshProgress.Receive(state, source.GetString() == "claude" ? "Claude" : "DSH");
+                    pet.RefreshTaskProgress(dshProgress.Text);
+                }
+                else engine.SetAmbient(state);
+                return new { state };
             case "carry":
                 using (var shell = new ShellDesktop())
                 {

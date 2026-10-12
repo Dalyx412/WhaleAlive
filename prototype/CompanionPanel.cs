@@ -78,9 +78,9 @@ public sealed partial class CompanionPanel : UserControl, IDisposable
         Buttons(p,("现在玩一次",async()=>{if(!await auto.TryPlay(true))features.Tell("先开启自主搬运，并等待当前动作结束。");}),("看看睡觉链条",()=>engine.IdleAction("sleep")));
         Toggle("允许随机小动作、散步和坐图标",auto.IdleEnabled,v=>{auto.IdleEnabled=v;if(!v)engine.Stop();});
         var permissions=new StackPanel();
-        var real=new CheckBox{Content="允许手动及 DSH 移动图标",IsChecked=engine.AllowRealMove};real.Checked+=(_,_)=>engine.AllowRealMove=true;real.Unchecked+=(_,_)=>{engine.AllowRealMove=false;engine.Stop();};permissions.Children.Add(real);
+        var real=new CheckBox{Content="允许手动及 AI 助手移动图标",IsChecked=engine.AllowRealMove};real.Checked+=(_,_)=>engine.AllowRealMove=true;real.Unchecked+=(_,_)=>{engine.AllowRealMove=false;engine.Stop();};permissions.Children.Add(real);
         var cursor=new CheckBox{Content="允许鼠标互动",IsChecked=engine.AllowCursor};cursor.Checked+=(_,_)=>engine.AllowCursor=true;cursor.Unchecked+=(_,_)=>{engine.AllowCursor=false;engine.Stop();};permissions.Children.Add(cursor);
-        var windowMove=new CheckBox{Content="允许 DSH 移动窗口",IsChecked=features.AllowWindowMove};windowMove.Checked+=(_,_)=>features.AllowWindowMove=true;windowMove.Unchecked+=(_,_)=>{features.AllowWindowMove=false;engine.Stop();};permissions.Children.Add(windowMove);
+        var windowMove=new CheckBox{Content="允许 AI 助手移动窗口",IsChecked=features.AllowWindowMove};windowMove.Checked+=(_,_)=>features.AllowWindowMove=true;windowMove.Unchecked+=(_,_)=>{features.AllowWindowMove=false;engine.Stop();};permissions.Children.Add(windowMove);
         p.Children.Add(new Expander{Header="手动操作权限 · 本次运行有效",Content=permissions,Style=(Style)FindResource("GlassExpander")});
         Text(p,"恢复会暂停自主搬运。你后来手动移动的图标会跳过，不覆盖新位置。");
         primary.Children.Add(new Expander{Header="更多行为与权限",Content=p,Style=(Style)FindResource("GlassExpander")});return primary;
@@ -127,7 +127,7 @@ public sealed partial class CompanionPanel : UserControl, IDisposable
         var drop=new Border{BorderBrush=GlassAppearance.Blue,BorderThickness=new(1),Padding=new(18),Margin=new(0,5,0,12),AllowDrop=true,Background=GlassAppearance.Surface,Child=new TextBlock{Text="把文件拖到这里 · 稍后处理",HorizontalAlignment=HorizontalAlignment.Center}};
         drop.DragOver+=(_,e)=>{e.Effects=e.Data.GetDataPresent(DataFormats.FileDrop)?DragDropEffects.Link:DragDropEffects.None;e.Handled=true;};drop.Drop+=(_,e)=>{if(e.Data.GetData(DataFormats.FileDrop)is string[] paths)features.KeepFiles(paths,"later");};p.Children.Add(drop);p.Children.Add(files);
         Buttons(p,("打开所在位置",()=>Sync(()=>{if(files.SelectedItem is SavedItem item)CompanionFeatures.Reveal(item.Path);})),("取消暂存",()=>Sync(()=>{if(files.SelectedItem is SavedItem item){features.Store.Data.Files.Remove(item);features.Store.Save();features.Refresh();}})));
-        Text(p,"产物快递：填写本机输出文件路径。DSH 也可通过工具送来产物。");var path=Input(p,"完整文件路径");Buttons(p,("把这份产物送来",()=>features.Deliver(path.Text.Trim('"',' '))));return p;
+        Text(p,"产物快递：填写本机输出文件路径。AI 助手也可通过工具送来产物。");var path=Input(p,"完整文件路径");Buttons(p,("把这份产物送来",()=>features.Deliver(path.Text.Trim('"',' '))));return p;
     }
     StackPanel IconOrganizeTab()
     {

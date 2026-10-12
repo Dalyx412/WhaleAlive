@@ -57,7 +57,7 @@ public sealed partial class PetWindow
         // A busy dispatcher may deliver button-up before the hold timer callback.
         AdvancePrimaryPress();bool click=!primaryWasDrag&&!clickMoved;
         primaryPressed=false;holdTimer.Stop();EndDrag();sprite.ReleaseMouseCapture();
-        if(click){if(Clicked!=null)Clicked.Invoke();else ShowTaskProgress("还没连接到 DSH\n连接后点我查看任务进度。");}
+        if(click){if(Clicked!=null)Clicked.Invoke();else ShowTaskProgress("还没连接到 AI 助手\n连接后点我查看任务进度。");}
     }
     internal void CancelPrimaryPress()
     {

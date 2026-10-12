@@ -2,6 +2,12 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import { request } from './pet.mjs';
+import { startClaudeRelay } from './claude-relay.mjs';
+
+// DSH also starts this file. Only the Claude config enables its heartbeat owner.
+const claudeRelay = process.env.WHALE_ALIVE_CLAUDE === '1' ? startClaudeRelay({ petRequest: request }) : null;
+process.stdin.once('end', () => claudeRelay?.stop());
+process.once('exit', () => claudeRelay?.stop());
 
 const server=new McpServer({name:'whale-alive',version:'0.1.0'});
 const invoke=async(command,extra)=>{

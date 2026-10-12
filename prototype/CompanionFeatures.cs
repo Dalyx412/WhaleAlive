@@ -53,7 +53,7 @@ public sealed class CompanionFeatures : IDisposable
             using(var shell=new ShellDesktop()){var current=shell.List(false).SingleOrDefault(i=>i.Id==item.Id);if(current==null||current.X!=item.FromX||current.Y!=item.FromY)throw new InvalidOperationException("图标位置已改变，请重新生成计划。");}
             await engine.Carry(item.Id,"计划位置",true,targetPosition:item.Destination);Plan.Remove(item);
         });}finally{batchRunning=false;}
-        Tell("整理完成，需要时可通过 DSH 逐项撤销。");
+        Tell("整理完成，需要时可通过 AI 助手逐项撤销。");
     }
     public static async Task ExecutePlan(IReadOnlyList<IconPlan> items,Func<long> stopVersion,Func<IconPlan,Task> execute)
     {
@@ -145,7 +145,7 @@ public sealed class CompanionFeatures : IDisposable
     async Task ApprovalNotice()
     {
         try{await engine.RunActivity(async ct=>{
-            Tell("DSH 在等你确认，我就在这里等。");await pet.PlayOnce("wave",ct);
+            Tell("AI 助手在等你确认，我就在这里等。");await pet.PlayOnce("wave",ct);
         });}catch(OperationCanceledException){}catch(Exception e){Tell(e.Message);}
     }
     public Task Deliver(string path)=>engine.RunActivity(async ct=>{

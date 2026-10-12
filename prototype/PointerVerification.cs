@@ -9,13 +9,16 @@ public static class PointerVerification
     public static async Task Run()
     {
         var checks=new List<string>();var now=DateTimeOffset.UtcNow;var progress=new DshProgress(()=>now);
-        Check(progress.Text.Contains("还没连接"),"Missing disconnected state");
+        Check(progress.Text.Contains("还没连接到 AI 助手"),"Missing disconnected state");
         foreach(var (stage,text) in new[]{("think","正在思考"),("working","正在执行"),("wait","等待你确认"),("celebrate","本轮任务已完成"),("error","执行遇到问题")})
         {progress.Receive(stage);Check(progress.Text.Contains(text),"Wrong DSH stage: "+stage);}
         progress.Receive("celebrate");progress.Receive("idle");Check(progress.Text.Contains("最近一轮已完成"),"Completion lost on heartbeat");
         progress.Receive("think");progress.Receive("idle");Check(!progress.Text.Contains("已完成"),"Aborted turn retained stale success");
         now=now.AddSeconds(9);Check(progress.Text.Contains("连接暂时中断"),"Stale state displayed as live progress");progress.Receive("working");
         checks.Add("dsh-stages-completion-idle-disconnect-and-reconnect");
+        progress.Receive("wait","Claude");Check(progress.Text.Contains("Claude · 等待你确认"),"Missing Claude name");
+        now=now.AddSeconds(9);Check(progress.Text.Contains("Claude 连接暂时中断"),"Missing Claude disconnect");
+        progress.Receive("working","Claude");
         var pet=new PetWindow();pet.Show();int clicks=0,grabs=0;
         pet.Clicked+=()=>{clicks++;pet.ShowTaskProgress(progress.Text);};pet.Grabbed+=()=>grabs++;
         try

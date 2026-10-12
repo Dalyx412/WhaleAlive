@@ -2,7 +2,7 @@ import net from 'node:net';
 
 export function request(command, timeout = 600000) {
   return new Promise((resolve, reject) => {
-    const socket = net.createConnection('\\\\.\\pipe\\WhaleAlive.Prototype');
+    const socket = net.createConnection(process.env.WHALE_ALIVE_PET_PIPE || '\\\\.\\pipe\\WhaleAlive.Prototype');
     let data = '';
     socket.setTimeout(timeout, () => socket.destroy(new Error('桌宠响应超时')));
     socket.once('connect', () => socket.write(JSON.stringify(command) + '\n'));

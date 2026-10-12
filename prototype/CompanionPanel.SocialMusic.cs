@@ -34,7 +34,7 @@ public sealed partial class CompanionPanel
             box.Checked += (_, _) => Change(true); box.Unchecked += (_, _) => Change(false); apps.Children.Add(box);
         }
         p.Children.Add(apps);
-        Text(p, "只提示新收到的 Windows 通知，连续消息合并。软件自绘弹窗或隐藏的消息详情无法读取。消息不会保存或发给DSH。");
+        Text(p, "只提示新收到的 Windows 通知，连续消息合并。软件自绘弹窗或隐藏的消息详情无法读取。消息不会保存或发给 AI 助手。");
         p.Children.Add(new Separator { Margin = new(0, 8, 0, 8) });
         Toggle("连接音乐播放器", settings.Music, v => settings.Music = v);
         p.Children.Add(musicPlayer);

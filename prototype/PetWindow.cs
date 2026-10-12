@@ -107,6 +107,7 @@ public sealed partial class PetWindow : Window
         Grabbed?.Invoke();
         SetState("drag",true);SetAnchor(FromPixels(physicalPointer));
     }
+    public event Action? Dropped;
     public void EndDrag()
     {
         if(!dragging)return;
@@ -115,6 +116,7 @@ public sealed partial class PetWindow : Window
         var screen=sprite.PointToScreen(new(feet.X*SpriteDisplaySize,feet.Y*SpriteDisplaySize));
         dragging=false;sprite.ReleaseMouseCapture();SetState("idle");SetAnchor(FromPixels(screen));
         todoBubbles.Visibility=Visibility.Visible;ShowMusicFallback();
+        Dropped?.Invoke();
     }
     internal void MoveDragTo(Point p)
     {
