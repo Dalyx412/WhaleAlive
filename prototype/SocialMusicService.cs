@@ -12,6 +12,26 @@ namespace WhaleAlive;
 public sealed record MusicPlayer(string Id, string Name)
 {
     public override string ToString()=>Name;
+    // Browsers register one media session per profile ("Chrome", "Chrome.<hash>") or per
+    // installed web app ("Chrome._crx_<id>"), so the raw id says nothing about the site.
+    public static string DisplayName(string id)
+    {
+        if(id.Contains("qqmusic", StringComparison.OrdinalIgnoreCase)) return "QQ 音乐";
+        if(id.Contains("spotify", StringComparison.OrdinalIgnoreCase)) return "Spotify";
+        foreach(var (prefix, browser) in new[]{("Chrome", "Chrome"), ("MSEdge", "Edge")})
+        {
+            if(!id.Equals(prefix, StringComparison.OrdinalIgnoreCase) && !id.StartsWith(prefix + ".", StringComparison.OrdinalIgnoreCase)) continue;
+            return id.Contains("_crx_", StringComparison.OrdinalIgnoreCase) ? $"{browser} 网页应用（已安装的 YouTube Music 等）" : $"{browser} 浏览器（YouTube Music 等网页）";
+        }
+        if(id.Contains("firefox", StringComparison.OrdinalIgnoreCase)) return "Firefox 浏览器";
+        return id;
+    }
+    // Two Chrome profiles would otherwise share one label; keep them apart by the id tail.
+    public static IReadOnlyList<MusicPlayer> FromIds(IEnumerable<string> ids)
+    {
+        var players = ids.Distinct().Select(id => new MusicPlayer(id, DisplayName(id))).ToList();
+        return players.Select(p => players.Count(o => o.Name == p.Name) > 1 && p.Name != p.Id ? p with { Name = $"{p.Name} · {p.Id[^Math.Min(4, p.Id.Length)..]}" } : p).ToArray();
+    }
 }
 public sealed class SocialMusicService : IDisposable
 {
@@ -162,7 +182,7 @@ public sealed class SocialMusicService : IDisposable
         manager ??= await GlobalSystemMediaTransportControlsSessionManager.RequestAsync();
         if(disposed || !Settings.Music) return;
         var sessions = manager.GetSessions();
-        Players = sessions.Select(s => new MusicPlayer(s.SourceAppUserModelId, s.SourceAppUserModelId.Contains("qqmusic", StringComparison.OrdinalIgnoreCase) ? "QQ 音乐" : s.SourceAppUserModelId)).DistinctBy(p => p.Id).ToArray();
+        Players = MusicPlayer.FromIds(sessions.Select(s => s.SourceAppUserModelId));
         var chosen = sessions.FirstOrDefault(s => Settings.PlayerId.Length > 0 ? s.SourceAppUserModelId == Settings.PlayerId : s.SourceAppUserModelId.Contains("qqmusic", StringComparison.OrdinalIgnoreCase));
         if(chosen == null)
         {

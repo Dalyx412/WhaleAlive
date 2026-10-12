@@ -65,7 +65,7 @@ public sealed partial class CompanionPanel
         {
             playersStamp = stamp; refreshingMusic = true;
             var players = new List<MusicPlayer> { new("", "自动连接 QQ 音乐") }; players.AddRange(service.Players);
-            if(service.Settings.PlayerId.Length > 0 && players.All(p => p.Id != service.Settings.PlayerId)) players.Add(new(service.Settings.PlayerId, "未连接 · " + service.Settings.PlayerId));
+            if(service.Settings.PlayerId.Length > 0 && players.All(p => p.Id != service.Settings.PlayerId)) players.Add(new(service.Settings.PlayerId, "未连接 · " + MusicPlayer.DisplayName(service.Settings.PlayerId)));
             musicPlayer.ItemsSource = players; musicPlayer.SelectedValue = service.Settings.PlayerId; refreshingMusic = false;
         }
     }

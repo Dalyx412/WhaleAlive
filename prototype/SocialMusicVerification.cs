@@ -19,6 +19,11 @@ public static class SocialMusicVerification
         Check(NotificationPreview.Format("QQ", 2, "甲", "你好") == "QQ · 甲：你好", "Full preview incorrect");
         Check(!NotificationPreview.Format("QQ", 2, "甲", "你好", 4).Contains("甲"), "Burst summary leaks content");
         Check(NotificationPreview.AppKind("Tencent.QQNT", "QQ") == "QQ" && NotificationPreview.AppKind("Weixin", "微信") == "微信" && NotificationPreview.AppKind("QQMusic.exe", "QQ音乐") == null, "App filtering");
+        Check(MusicPlayer.DisplayName("QQMusic.exe") == "QQ 音乐" && MusicPlayer.DisplayName("Chrome").StartsWith("Chrome 浏览器") && MusicPlayer.DisplayName("Chrome.Y5LEGKO57XOKIUOJCJWCYVTRUI").StartsWith("Chrome 浏览器")
+            && MusicPlayer.DisplayName("Chrome._crx_cinhimbnkkaeohfgghhklpknlkffjgod").StartsWith("Chrome 网页应用") && MusicPlayer.DisplayName("MSEdge").StartsWith("Edge 浏览器")
+            && MusicPlayer.DisplayName("ChromeLikeApp") == "ChromeLikeApp" && MusicPlayer.DisplayName("Foobar2000") == "Foobar2000", "Player display names");
+        var profiles = MusicPlayer.FromIds(new[]{"Chrome.AAAA1111", "Chrome.BBBB2222", "Chrome.AAAA1111"});
+        Check(profiles.Count == 2 && profiles[0].Name != profiles[1].Name && profiles[0].Name.EndsWith("1111"), "Browser profiles share a label");
         evidence.Add(new { test = "privacy-sender-body-burst-and-app-filter", pass = true });
         var now = DateTimeOffset.UtcNow;
         var cursor = new NotificationCursor(); cursor.Reset(now);
