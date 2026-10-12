@@ -1,4 +1,4 @@
-﻿using System.IO;
+using System.IO;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
@@ -11,8 +11,8 @@ public partial class MainWindow : Window
     readonly CompanionFeatures companion;
     readonly CompanionPanel panel;
     readonly PetQuickMenu quickMenu;
-    readonly EmergencyStop killSwitch;
-    readonly PipeBridge bridge;
+    readonly EmergencyStop? killSwitch;
+    readonly PipeBridge? bridge;
     readonly DshProgress dshProgress=new();
     string? lastAgentState;
     readonly System.Windows.Threading.DispatcherTimer idleTimer = new() { Interval = TimeSpan.FromSeconds(2) };
@@ -20,23 +20,27 @@ public partial class MainWindow : Window
     List<DesktopIcon> allIcons = new();
     bool triedFirstSeat, exiting;
     PutdownAdjustmentWindow? putdownAdjustment;
-    public MainWindow(bool desktopMode = false)
+    double appliedUiScale;
+    bool sizing;
+    readonly bool verification;
+    public MainWindow(bool desktopMode = false,CompanionStore? store=null)
     {
-        InitializeComponent();
+        verification=store!=null;InitializeComponent();
         SourceInitialized += (_, _) => GlassAppearance.Apply(this);
         var work = SystemParameters.WorkArea; Height = Math.Min(Height, work.Height - 40); Width = Math.Min(Width, work.Width - 40);
-        pet = new PetWindow(); pet.Show(); engine = new(pet);
-        companion = new(pet,engine);
+        pet = new PetWindow(); pet.Show(); engine = new(pet,verification?Path.Combine(Path.GetTempPath(),"WhaleAlive-ui-unused-history.json"):null);
+        companion = new(pet,engine,store);
         panel=new CompanionPanel(companion,engine,()=>IconList.SelectedItems.Cast<DesktopIcon>().ToArray());WorkspaceHost.Content=panel;
-        panel.ShowAutonomy();
+        panel.ShowAutonomy();companion.Changed+=ApplyUiScale;ApplyUiScale();
+        DpiChanged+=(_,_)=>Dispatcher.BeginInvoke(()=>ApplyUiScale(true));
+        LocationChanged+=(_,_)=>{if(!sizing&&IsVisible&&appliedUiScale>0){var area=DisplayGeometry.WindowWorkArea(this,pet);if(Width>area.Width-40||Height>area.Height-40)ApplyUiScale(true);}};
         engine.Progress+=(text,_)=>companion.Tell(text);
-        engine.Changed+=()=>{lastActivity=DateTime.Now;if(IsLoaded&&IsVisible&&!engine.Busy&&!pet.IsDragging)RefreshIcons();};
+        engine.Changed+=()=>{lastActivity=DateTime.Now;if(!verification&&IsLoaded&&IsVisible&&!engine.Busy&&!pet.IsDragging)RefreshIcons();};
         quickMenu = new(pet, engine, companion, ShowSettings, ExitApplication);
         pet.Grabbed += engine.Stop; pet.OpenMenu += quickMenu.Open;
         pet.Dropped += () => engine.SetAmbient(engine.AmbientState);
         pet.Clicked+=()=>pet.ShowTaskProgress(dshProgress.Text);
-        killSwitch = new(() => Dispatcher.BeginInvoke(() => engine.Stop()));
-        bridge = new(HandleCommand);
+        if(!verification){killSwitch=new(()=>Dispatcher.BeginInvoke(()=>engine.Stop()));bridge=new(HandleCommand);}
         idleTimer.Tick += async (_, _) =>
         {
             pet.RefreshTaskProgress(dshProgress.Text);
@@ -53,13 +57,21 @@ public partial class MainWindow : Window
             }
             catch (Exception ex) { companion.Tell("待机动作已结束：" + ex.Message); }
             finally { lastWander = DateTime.Now; }
-        }; idleTimer.Start();
+        }; if(!verification)idleTimer.Start();
         Closing += (_, e) => { if(desktopMode && !exiting) { e.Cancel = true; Hide(); } };
-        Closed += (_, _) => { putdownAdjustment?.Close();idleTimer.Stop(); quickMenu.Dispose(); engine.Stop(); panel.Dispose(); companion.Dispose(); bridge.Dispose(); killSwitch.Dispose(); pet.Close(); };
-        Loaded += (_, _) => { RefreshIcons(); companion.SocialMusic.Start(); };
-        if(desktopMode) companion.SocialMusic.Start();
+        Closed += (_, _) => { putdownAdjustment?.Close();companion.Changed-=ApplyUiScale;idleTimer.Stop(); quickMenu.Dispose(); engine.Stop(); panel.Dispose(); companion.Dispose(); bridge?.Dispose(); killSwitch?.Dispose(); pet.Close(); };
+        Loaded += (_, _) => { ApplyUiScale(true);if(!verification){RefreshIcons();companion.SocialMusic.Start();} };
+        if(desktopMode&&!verification) companion.SocialMusic.Start();
     }
-    internal void ShowSettings() { Show(); WindowState = WindowState.Normal; Activate(); RefreshIcons(); }
+    internal FrameworkElement SettingsView=>GlassShell;
+    internal CompanionPanel SettingsPanel=>panel;
+    void ApplyUiScale()=>ApplyUiScale(false);
+    void ApplyUiScale(bool force)
+    {
+        double scale=companion.Store.Data.UiScale;if(!force&&appliedUiScale==scale)return;bool resize=appliedUiScale!=scale;appliedUiScale=scale;
+        if(sizing)return;sizing=true;try{UiSizing.Settings(this,GlassShell,scale,DisplayGeometry.WindowWorkArea(this,pet),resize);}finally{sizing=false;}
+    }
+    internal void ShowSettings() { Show(); WindowState = WindowState.Normal;ApplyUiScale(true); Activate();if(!verification)RefreshIcons(); }
     internal void ExitApplication() { exiting = true; Close(); }
     void MinimizeClick(object s,RoutedEventArgs e)=>WindowState=WindowState.Minimized;
     void MaximizeClick(object s,RoutedEventArgs e)=>WindowState=WindowState==WindowState.Maximized?WindowState.Normal:WindowState.Maximized;

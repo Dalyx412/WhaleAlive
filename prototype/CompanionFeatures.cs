@@ -41,7 +41,7 @@ public sealed class CompanionFeatures : IDisposable
     }
     public Task PreviewPlan()=>engine.RunActivity(async ct=>{
         if(Plan.Count==0)throw new InvalidOperationException("请先生成整理计划。");
-        var markers=new List<PetScene>();try{foreach(var p in Plan){var scene=new PetScene(pet.ToPixels(p.Destination),p.Name,[],true);scene.Show();markers.Add(scene);}await Task.Delay(4000,ct);}finally{foreach(var m in markers)m.Dispose();}
+        var markers=new List<PetScene>();try{foreach(var p in Plan){var scene=new PetScene(pet.ToPixels(p.Destination),p.Name,[],true,pet);scene.Show();markers.Add(scene);}await Task.Delay(4000,ct);}finally{foreach(var m in markers)m.Dispose();}
     });
     public async Task ApplyPlan()
     {
@@ -71,8 +71,14 @@ public sealed class CompanionFeatures : IDisposable
     public void Tell(string text){Message=text;pet.Say(text);Changed?.Invoke();}
     public void Refresh()
     {
-        pet.ShowTodos(Store.Data.Todos,CompleteTodo);
+        pet.SetUiScale(Store.Data.UiScale);pet.ShowTodos(Store.Data.Todos,CompleteTodo);
         engine.Quiet=Store.Data.Quiet;engine.AllowSleep=Store.Data.Autonomy.Sleep;Changed?.Invoke();
+    }
+    public void SetUiScale(double value)
+    {
+        double previous=Store.Data.UiScale;Store.Data.UiScale=value;
+        try{Store.Save();}catch{Store.Data.UiScale=previous;throw;}
+        Refresh();
     }
     void Tick()
     {
@@ -124,7 +130,7 @@ public sealed class CompanionFeatures : IDisposable
             var p=CursorControl.Position();var target=pet.FromPixels(new(p.X,p.Y));
             Tell(hide?"捉迷藏开始，看看你往哪里走～":"鼠标在这里！");
             await pet.WalkTo(Limit(target+new Vector(55,70)),ct,run:true);
-            using var ripple=new PetScene(pet.ToPixels(target),"光标在这里",[],true);ripple.Show();
+            using var ripple=new PetScene(pet.ToPixels(target),"光标在这里",[],true,pet);ripple.Show();
             await pet.PlayOnce(hide?"peek":"wave",ct);
         }
     });
@@ -133,7 +139,7 @@ public sealed class CompanionFeatures : IDisposable
         var icon=FindIcon(iconName);var target=pet.ToPixels(IconPoint(icon)+new Vector(0,22));
         await pet.WalkTo(Limit(pet.FromPixels(target)+new Vector(55,50)),ct,run:true);
         Tell("把指针带到图标旁；移动鼠标或点击即可取消。");
-        using var marker=new PetScene(target,"指针目的地",[],true);marker.Show();await Task.Delay(1000,ct);
+        using var marker=new PetScene(target,"指针目的地",[],true,pet);marker.Show();await Task.Delay(1000,ct);
         bool escaped=await CursorControl.Guide(new((int)target.X,(int)target.Y),ct,()=>engine.AllowCursor);
         Tell(escaped?"你接手啦。":"指针到了，由你决定是否打开。");
     });

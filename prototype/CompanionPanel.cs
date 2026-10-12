@@ -15,7 +15,8 @@ public sealed partial class CompanionPanel : UserControl, IDisposable
     readonly ListBox plan=new(){Height=120};
     string dataStamp="";
     readonly TabControl tabs=new();
-    CheckBox? autonomousEnabled;
+    CheckBox? autonomousEnabled,uiSize;
+    bool refreshingAppearance;
     public CompanionPanel(CompanionFeatures features,Interaction engine,Func<IReadOnlyList<DesktopIcon>> selectedIcons)
     {
         this.features=features;this.engine=engine;this.selectedIcons=selectedIcons;Foreground=GlassAppearance.Ink;FontFamily=new("Microsoft YaHei UI");FontSize=14;
@@ -26,12 +27,23 @@ public sealed partial class CompanionPanel : UserControl, IDisposable
         AddTab(tabs,"待办",TodoTab());AddTab(tabs,"文件",FilesTab());AddTab(tabs,"整理",IconOrganizeTab());
         AddTab(tabs,"自主设置",AutonomyTab());
         AddTab(tabs,"消息与音乐",SocialMusicTab());
+        AddTab(tabs,"外观",AppearanceTab());
         features.Changed+=Refresh;Refresh();
     }
     public void Dispose(){features.Changed-=Refresh;features.SocialMusic.Changed-=RefreshSocialMusic;}
     public void ShowAutonomy()=>tabs.SelectedIndex=3;
     public void ShowSocialMusic()=>tabs.SelectedIndex=4;
     public void ShowTodos()=>tabs.SelectedIndex=0;
+    public void ShowAppearance()=>tabs.SelectedIndex=5;
+    StackPanel AppearanceTab()
+    {
+        var p=Column();
+        // Keep appearance controls together so character size can be added independently.
+        uiSize=new CheckBox{Content="界面放大到 200%",IsChecked=features.Store.Data.UiScale==2,Style=(Style)FindResource("Switch")};
+        void Change(){if(refreshingAppearance)return;try{features.SetUiScale(uiSize.IsChecked==true?2:1);}catch(Exception ex){Refresh();features.Tell(ex.Message);}}
+        uiSize.Checked+=(_,_)=>Change();uiSize.Unchecked+=(_,_)=>Change();p.Children.Add(uiSize);
+        Text(p,"放大气泡、菜单、待办泡泡、音乐卡片和设置窗口；角色大小不变。");return p;
+    }
     StackPanel AutonomyTab()
     {
         var p=Column();var auto=features.Autonomy;var settings=auto.Settings;
@@ -99,7 +111,7 @@ public sealed partial class CompanionPanel : UserControl, IDisposable
     static void AddTab(TabControl tabs,string name,UIElement content)
     {
         if(content is Panel column)column.Children.Insert(0,new TextBlock{Text=name,FontSize=23,FontWeight=FontWeights.SemiBold,Margin=new(0,0,0,16)});
-        tabs.Items.Add(new TabItem{Header=name,Content=new Border{CornerRadius=new(12),BorderBrush=GlassAppearance.Line,BorderThickness=new(1),Background=Brush("#AFFFFFFF"),Child=new ScrollViewer{Content=content,VerticalScrollBarVisibility=ScrollBarVisibility.Auto,Foreground=GlassAppearance.Ink}}});
+        tabs.Items.Add(new TabItem{Header=name,Content=new Border{CornerRadius=new(12),BorderBrush=GlassAppearance.Line,BorderThickness=new(1),Background=Brush("#AFFFFFFF"),Child=new ScrollViewer{Content=content,VerticalScrollBarVisibility=ScrollBarVisibility.Auto,HorizontalScrollBarVisibility=ScrollBarVisibility.Auto,Foreground=GlassAppearance.Ink}}});
     }
     string[] SelectedIcons()=>selectedIcons().Select(i=>i.Id).ToArray();
     StackPanel TodoTab()
@@ -138,6 +150,7 @@ public sealed partial class CompanionPanel : UserControl, IDisposable
     void Refresh()
     {
         status.Text=features.Message;var d=features.Store.Data;
+        refreshingAppearance=true;if(uiSize!=null)uiSize.IsChecked=d.UiScale==2;refreshingAppearance=false;
         if(autonomousEnabled!=null&&autonomousEnabled.IsChecked!=features.Autonomy.Enabled)autonomousEnabled.IsChecked=features.Autonomy.Enabled;
         string stamp=string.Join('|',d.Todos.Select(t=>$"{t.Id}:{t.Text}:{t.Done}:{t.Created:O}:{t.Completed:O}"))+string.Join('|',d.Files.Select(f=>f.Id));
         if(stamp==dataStamp)return;dataStamp=stamp;

@@ -17,7 +17,7 @@ public sealed class PutdownAdjustmentWindow : Window
         this.pet=pet;this.calibration=calibration;this.iconId=iconId;right=initialRight;
         Title="放下图标 · 位置微调";Icon=GlassAppearance.AppIcon;Width=420;SizeToContent=SizeToContent.Height;
         ResizeMode=ResizeMode.NoResize;Topmost=true;WindowStartupLocation=WindowStartupLocation.CenterScreen;
-        Background=GlassAppearance.Surface;Foreground=GlassAppearance.Ink;FontFamily=new("Microsoft YaHei UI");FontSize=14;Content=body;
+        Background=GlassAppearance.Surface;Foreground=GlassAppearance.Ink;FontFamily=new("Microsoft YaHei UI");FontSize=14;Content=new ScrollViewer{Content=body,VerticalScrollBarVisibility=ScrollBarVisibility.Auto,HorizontalScrollBarVisibility=ScrollBarVisibility.Auto};
         body.Children.Add(new TextBlock{Text="调整放下时的站位",FontSize=20,FontWeight=FontWeights.SemiBold});
         body.Children.Add(new TextBlock{Text="直接拖动人物，让放下时的双手对准图标。\n也可用箭头每次微调 1 像素，按住 Shift 为 5 像素。",TextWrapping=TextWrapping.Wrap,Margin=new(0,10,0,0)});
         body.Children.Add(state);
@@ -29,8 +29,14 @@ public sealed class PutdownAdjustmentWindow : Window
         body.Children.Add(Button("保存当前方向，再调另一边",()=>{calibration.SaveAndSwitchDirection();right=calibration.FacingRight;Refresh();return Task.CompletedTask;}));
         body.Children.Add(Button("保存并完成",async()=>{await calibration.Save();Close();}));
         body.Children.Add(Button("取消当前调整",async()=>{await calibration.Cancel();Close();}));
-        calibration.Changed+=Refresh;
-        Closed+=async(_,_)=>{calibration.Changed-=Refresh;await calibration.Cancel();};
+        calibration.Changed+=Refresh;pet.UiScaleChanged+=ApplyScale;Loaded+=(_,_)=>ApplyScale();ApplyScale();
+        Closed+=async(_,_)=>{calibration.Changed-=Refresh;pet.UiScaleChanged-=ApplyScale;await calibration.Cancel();};
+    }
+    void ApplyScale()
+    {
+        double scale=pet.UiScale;var work=DisplayGeometry.WindowWorkArea(this,pet);UiSizing.Apply(body,scale);
+        MaxHeight=work.Height-40;Width=Math.Min(420*scale,work.Width-40);
+        if(IsVisible){Left=Math.Clamp(Left,work.Left+20,work.Right-Width-20);Top=Math.Clamp(Top,work.Top+20,Math.Max(work.Top+20,work.Bottom-ActualHeight-20));}
     }
     Button Button(string title,Func<Task> action)
     {

@@ -52,5 +52,6 @@ public static class PointerVerification
             File.WriteAllText(Path.Combine(AppContext.BaseDirectory,"pointer-verification.json"),JsonSerializer.Serialize(checks,new JsonSerializerOptions{WriteIndented=true}));
         }
         finally{pet.CancelPrimaryPress();pet.Close();}
+        await UiScaleVerification.Run();
     }
 }

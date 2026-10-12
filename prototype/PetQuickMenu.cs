@@ -30,6 +30,8 @@ public sealed class PetQuickMenu : IDisposable
     bool disposed, refreshing;
     public bool IsOpen => menu.IsOpen;
     internal FrameworkElement View => content;
+    internal ContextMenu Card=>menu;
+    Point openPoint;
     internal string SongText => song.Text;
     internal bool HasCover => cover.Source != null;
     internal TextBox TodoInput => todoInput;
@@ -118,8 +120,8 @@ public sealed class PetQuickMenu : IDisposable
     public void Open()
     {
         if(disposed) return;
+        var pointer=new ShellDesktop.POINT();GetCursorPos(out pointer);openPoint=pet.FromPixels(new(pointer.X,pointer.Y));
         Refresh(); hint.Visibility = Visibility.Collapsed;
-        menu.MaxHeight = Math.Max(220, Math.Min(620, DisplayGeometry.WorkArea(pet, pet.Anchor).Height - 30));
         menu.IsOpen = true;
     }
     public void Close() { menu.IsOpen = false; pet.IsMenuOpen = false; }
@@ -137,6 +139,7 @@ public sealed class PetQuickMenu : IDisposable
     void Refresh()
     {
         if(disposed) return;
+        ApplyScale();
         var media = features.SocialMusic;
         song.Text = media.Song.Length > 0 ? media.Song : "还没有正在播放的音乐";
         artist.Text = media.Artist.Length > 0 ? media.Artist : media.Connected ? "已连接播放器" : "打开 QQ 音乐，播放一首歌";
@@ -157,6 +160,19 @@ public sealed class PetQuickMenu : IDisposable
             check.Checked += (_, _) => { try { features.CompleteTodo(note.Id); } catch(Exception ex) { ShowHint(ex.Message); } }; todoRows.Children.Add(check);
         }
     }
+    void ApplyScale()
+    {
+        double scale=features.Store.Data.UiScale;UiSizing.Apply(menu,scale);
+        LimitToWorkArea(DisplayGeometry.WorkArea(pet,openPoint));
+    }
+    internal void LimitToWorkArea(Rect work)
+    {
+        double scale=features.Store.Data.UiScale;
+        // MaxHeight is in the untransformed card coordinates; the outer popup grows with layout.
+        menu.MaxHeight=Math.Max(1,Math.Min(620,(work.Height-30)/scale));
+        menu.MaxWidth=Math.Max(1,(work.Width-16)/scale);
+    }
+    [System.Runtime.InteropServices.DllImport("user32.dll")]static extern bool GetCursorPos(out ShellDesktop.POINT point);
     public void Dispose()
     {
         disposed = true; Close(); features.SocialMusic.Changed -= Refresh; features.Changed -= Refresh;

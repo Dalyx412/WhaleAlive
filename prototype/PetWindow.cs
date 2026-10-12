@@ -54,6 +54,30 @@ public sealed partial class PetWindow : Window
     public bool SpeechVisible => bubble.Visibility == Visibility.Visible;
     internal bool TodoBubblesVisible=>todoBubbles.Visibility==Visibility.Visible;
     internal string DisplayedSpeech => speech.Text;
+    public double UiScale {get;private set;}=1;
+    public event Action? UiScaleChanged;
+    internal FrameworkElement SpeechView=>bubble;
+    internal FrameworkElement TodoView=>todoBubbles;
+    // Bubbles avoid the standing-pose box anchored at the feet, not the per-frame sprite
+    // bounds: clip scales and pivots differ per frame and would make bubbles jitter.
+    internal Rect CharacterBox{get{var c=catalog.Clips["idle"];double size=SpriteSize*c.DisplayScale;var p=c.Pivot(0,false);return new(canvasAnchor.X-p.X*size,canvasAnchor.Y-p.Y*size,size,size);}}
+    public void SetUiScale(double value)
+    {
+        value=value==2?2:1;if(UiScale==value)return;UiScale=value;UiSizing.Apply(bubble,value);
+        foreach(FrameworkElement child in todoBubbles.Children)UiSizing.Apply(child,value);
+        PositionTodoBubbles();PositionSpeech();UiScaleChanged?.Invoke();
+    }
+    void PositionSpeech()
+    {
+        if(viewport.IsEmpty||viewport.Width==0)return;
+        var work=DisplayGeometry.WorkArea(this,anchor);
+        var local=new Rect(PointFromScreen(ToPixels(work.TopLeft)),PointFromScreen(ToPixels(work.BottomRight)));
+        bubble.MaxHeight=Math.Max(1,(local.Height-16)/UiScale);bubble.Measure(new Size(double.PositiveInfinity,double.PositiveInfinity));
+        var size=bubble.DesiredSize;
+        var preferred=new Rect(canvasAnchor.X-size.Width/2,canvasAnchor.Y-183, size.Width,size.Height);
+        var placed=UiSizing.Beside(preferred,CharacterBox,local,12*UiScale);
+        Canvas.SetLeft(bubble,placed.Left);Canvas.SetTop(bubble,placed.Top);
+    }
     public double SpriteDisplaySize => SpriteSize * catalog.Clips[clipKey].DisplayScale;
     public double ReferenceCharacterHeight => SpriteDisplaySize * catalog.Clips[clipKey].ReferenceHeight;
     public Point Anchor => anchor;
@@ -87,6 +111,7 @@ public sealed partial class PetWindow : Window
         }
         bubble.MouseEnter += (_, _) => UpdateMusicControls();
         bubble.MouseLeave += (_, _) => musicControls.Visibility = Visibility.Collapsed;
+        UiSizing.Apply(bubble,UiScale);bubble.SizeChanged+=(_,_)=>PositionSpeech();
         canvas.Children.Add(bubble); Canvas.SetTop(bubble, 12); Canvas.SetLeft(bubble, 35);
         canvas.Children.Add(sprite); canvas.Children.Add(attachment);
         InitializeCompanionVisuals(canvas);
@@ -189,9 +214,8 @@ public sealed partial class PetWindow : Window
         if(viewport.IsEmpty||viewport.Width==0)return;
         var physical=ToPixels(p);var dpi=VisualTreeHelper.GetDpi(this);
         canvasAnchor=new((physical.X-viewport.Left)/dpi.DpiScaleX,(physical.Y-viewport.Top)/dpi.DpiScaleY);
-        Canvas.SetLeft(bubble,canvasAnchor.X-105);Canvas.SetTop(bubble,canvasAnchor.Y-183);
-        PositionTodoBubbles();
-        AnimateCompanionVisuals();RenderFrame();
+        RenderFrame();PositionTodoBubbles();PositionSpeech();
+        AnimateCompanionVisuals();
     }
     void DisplaySettingsChanged(object? sender,EventArgs e)=>Dispatcher.BeginInvoke(ConfigureViewport);
     void ConfigureViewport()
