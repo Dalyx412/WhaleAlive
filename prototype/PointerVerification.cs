@@ -6,7 +6,7 @@ namespace WhaleAlive;
 public static class PointerVerification
 {
     static void Check(bool value,string message){if(!value)throw new Exception(message);}
-    public static async Task Run()
+    public static async Task Run(double scale=1)
     {
         var checks=new List<string>();var now=DateTimeOffset.UtcNow;var progress=new DshProgress(()=>now);
         Check(progress.Text.Contains("还没连接到 AI 助手"),"Missing disconnected state");
@@ -19,7 +19,7 @@ public static class PointerVerification
         progress.Receive("wait","Claude");Check(progress.Text.Contains("Claude · 等待你确认"),"Missing Claude name");
         now=now.AddSeconds(9);Check(progress.Text.Contains("Claude 连接暂时中断"),"Missing Claude disconnect");
         progress.Receive("working","Claude");
-        var pet=new PetWindow();pet.Show();int clicks=0,grabs=0;
+        var pet=new PetWindow();pet.SetCharacterScale(scale);pet.Show();int clicks=0,grabs=0;
         pet.Clicked+=()=>{clicks++;pet.ShowTaskProgress(progress.Text);};pet.Grabbed+=()=>grabs++;
         try
         {
@@ -49,9 +49,9 @@ public static class PointerVerification
             pet.ShowTaskProgress(progress.Text);await Task.Delay(3200);pet.RefreshTaskProgress(progress.Text);await Task.Delay(3100);
             Check(!pet.SpeechVisible,"Progress updates prevented automatic dismissal");
             checks.Add("progress-expires-even-with-heartbeat-updates");
-            File.WriteAllText(Path.Combine(AppContext.BaseDirectory,"pointer-verification.json"),JsonSerializer.Serialize(checks,new JsonSerializerOptions{WriteIndented=true}));
+            File.WriteAllText(Path.Combine(AppContext.BaseDirectory,scale==1?"pointer-verification.json":"pointer-2x-verification.json"),JsonSerializer.Serialize(checks,new JsonSerializerOptions{WriteIndented=true}));
         }
         finally{pet.CancelPrimaryPress();pet.Close();}
-        await UiScaleVerification.Run();
+        if(scale==1){await Run(2);await UiScaleVerification.Run();await CharacterScaleVerification.Run();}
     }
 }

@@ -15,7 +15,7 @@ public sealed partial class CompanionPanel : UserControl, IDisposable
     readonly ListBox plan=new(){Height=120};
     string dataStamp="";
     readonly TabControl tabs=new();
-    CheckBox? autonomousEnabled,uiSize;
+    CheckBox? autonomousEnabled,uiSize,characterSize;
     bool refreshingAppearance;
     public CompanionPanel(CompanionFeatures features,Interaction engine,Func<IReadOnlyList<DesktopIcon>> selectedIcons)
     {
@@ -42,7 +42,11 @@ public sealed partial class CompanionPanel : UserControl, IDisposable
         uiSize=new CheckBox{Content="界面放大到 200%",IsChecked=features.Store.Data.UiScale==2,Style=(Style)FindResource("Switch")};
         void Change(){if(refreshingAppearance)return;try{features.SetUiScale(uiSize.IsChecked==true?2:1);}catch(Exception ex){Refresh();features.Tell(ex.Message);}}
         uiSize.Checked+=(_,_)=>Change();uiSize.Unchecked+=(_,_)=>Change();p.Children.Add(uiSize);
-        Text(p,"放大气泡、菜单、待办泡泡、音乐卡片和设置窗口；角色大小不变。");return p;
+        Text(p,"放大气泡、菜单、待办泡泡、音乐卡片和设置窗口。");
+        characterSize=new CheckBox{Content="角色放大到 200%",IsChecked=features.Store.Data.CharacterScale==2,Style=(Style)FindResource("Switch")};
+        void ChangeCharacter(){if(refreshingAppearance)return;try{features.SetCharacterScale(characterSize.IsChecked==true?2:1);}catch(Exception ex){Refresh();features.Tell(ex.Message);}}
+        characterSize.Checked+=(_,_)=>ChangeCharacter();characterSize.Unchecked+=(_,_)=>ChangeCharacter();p.Children.Add(characterSize);
+        Text(p,"放大角色，保持脚下或当前接触点的位置。");return p;
     }
     StackPanel AutonomyTab()
     {
@@ -150,7 +154,7 @@ public sealed partial class CompanionPanel : UserControl, IDisposable
     void Refresh()
     {
         status.Text=features.Message;var d=features.Store.Data;
-        refreshingAppearance=true;if(uiSize!=null)uiSize.IsChecked=d.UiScale==2;refreshingAppearance=false;
+        refreshingAppearance=true;if(uiSize!=null)uiSize.IsChecked=d.UiScale==2;if(characterSize!=null)characterSize.IsChecked=d.CharacterScale==2;refreshingAppearance=false;
         if(autonomousEnabled!=null&&autonomousEnabled.IsChecked!=features.Autonomy.Enabled)autonomousEnabled.IsChecked=features.Autonomy.Enabled;
         string stamp=string.Join('|',d.Todos.Select(t=>$"{t.Id}:{t.Text}:{t.Done}:{t.Created:O}:{t.Completed:O}"))+string.Join('|',d.Files.Select(f=>f.Id));
         if(stamp==dataStamp)return;dataStamp=stamp;

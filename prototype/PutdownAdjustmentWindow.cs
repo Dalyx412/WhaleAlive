@@ -45,5 +45,5 @@ public sealed class PutdownAdjustmentWindow : Window
         return button;
     }
     public async Task Begin(){pet.Face(right);await calibration.StartCarry(true,iconId);Refresh();}
-    void Refresh(){if(calibration.Active)state.Text=$"{calibration.TargetName} · 朝{(calibration.FacingRight?"右":"左")}\n横向 {calibration.Offset.X:0.#}，纵向 {calibration.Offset.Y:0.#}";}
+    void Refresh(){if(calibration.Active)state.Text=$"{calibration.TargetName} · 朝{(calibration.FacingRight?"右":"左")}\n横向 {calibration.Offset.X:0.#}，纵向 {calibration.Offset.Y:0.#}（1x 基准单位）";}
 }

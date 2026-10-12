@@ -21,9 +21,9 @@ public static class DragSurfaceVerification
         var result=new RenderTargetBitmap(width,height,96,96,PixelFormats.Pbgra32);result.Render(visual);return result;
     }
     static int OpaquePixels(BitmapSource source){var bytes=new byte[source.PixelWidth*source.PixelHeight*4];source.CopyPixels(bytes,source.PixelWidth*4,0);int count=0;for(int i=3;i<bytes.Length;i+=4)if(bytes[i]>8)count++;return count;}
-    public static async Task Run()
+    public static async Task Run(double scale=1)
     {
-        var pet=new PetWindow();pet.Show();pet.Say("");
+        var pet=new PetWindow();pet.SetCharacterScale(scale);pet.Show();pet.Say("");
         try
         {
             await Task.Delay(100);var hwnd=new WindowInteropHelper(pet).Handle;GetWindowRect(hwnd,out var original);
@@ -90,8 +90,9 @@ public static class DragSurfaceVerification
             evidence.Add(new{test="native-transparent-region-click-through",pass=true});
             var png=new PngBitmapEncoder();png.Frames.Add(BitmapFrame.Create(Crop(pet,pet.PointFromScreen(pet.ToPixels(pet.Anchor)))));
             using(var stream=File.Create(Path.Combine(AppContext.BaseDirectory,"drop-surface.png")))png.Save(stream);
-            File.WriteAllText(Path.Combine(AppContext.BaseDirectory,"drag-surface-verification.json"),JsonSerializer.Serialize(evidence,new JsonSerializerOptions{WriteIndented=true}));
+            File.WriteAllText(Path.Combine(AppContext.BaseDirectory,scale==1?"drag-surface-verification.json":"drag-surface-2x-verification.json"),JsonSerializer.Serialize(evidence,new JsonSerializerOptions{WriteIndented=true}));
         }
         finally{pet.Close();}
+        if(scale==1)await Run(2);
     }
 }

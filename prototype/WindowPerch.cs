@@ -29,7 +29,12 @@ public sealed class WindowPerch : IDisposable
         point=pet.FromPixels(new(r.Left+r.Width*fraction,r.Top));
         var work=DisplayGeometry.WorkArea(pet,point);
         // Leave room for the head above the top edge, including vertical calibration.
-        return r.Width>160&&point.X>work.Left+100&&point.X<work.Right-100&&point.Y>work.Top+140&&point.Y<work.Bottom-60;
+        if(pet.CharacterScale>1)
+        {
+            double x=pet.ToPixels(point).X,margin=pet.ToPixels(new Point(pet.CharacterPixels(100),0)).X;
+            if(x-r.Left<margin||r.Right-x<margin)return false;
+        }
+        return r.Width>160*pet.CharacterScale&&point.X>work.Left+pet.CharacterPixels(100)&&point.X<work.Right-pet.CharacterPixels(100)&&point.Y>work.Top+pet.CharacterPixels(140)&&point.Y<work.Bottom-pet.CharacterPixels(60);
     }
     internal bool TryIdleFraction(Rect r,out double selected)
     {
@@ -37,9 +42,9 @@ public sealed class WindowPerch : IDisposable
         var center=pet.FromPixels(new(r.Left+r.Width/2,r.Top));
         var work=DisplayGeometry.WorkArea(pet,center);
         var screen=new Rect(pet.ToPixels(work.TopLeft),pet.ToPixels(work.BottomRight));
-        double margin=pet.ToPixels(new Point(100,0)).X-pet.ToPixels(new Point()).X;
+        double margin=pet.ToPixels(new Point(pet.CharacterPixels(100),0)).X-pet.ToPixels(new Point()).X;
         double left=Math.Max(r.Left+margin,screen.Left+margin+1),right=Math.Min(r.Right-margin,screen.Right-margin-1);
-        if(r.Width<=160||right<left||center.Y<=work.Top+140||center.Y>=work.Bottom-60)return false;
+        if(r.Width<=160*pet.CharacterScale||right<left||center.Y<=work.Top+pet.CharacterPixels(140)||center.Y>=work.Bottom-pet.CharacterPixels(60))return false;
         selected=(left+Random.Shared.NextDouble()*(right-left)-r.Left)/r.Width;
         return true;
     }
@@ -119,7 +124,7 @@ public sealed class WindowPerch : IDisposable
         if(sleeping&&pet.CurrentFrame<pet.Clips["lie_sleep"].LoopStart)throw new InvalidOperationException("等她趴稳后再调整。");
         draft=Saved;Editing=true;pet.CalibrationFrame=sleeping?pet.Clips["lie_sleep"].LoopStart:0;pet.CalibrationDrag=Nudge;Changed?.Invoke();
     }
-    public void Nudge(Vector delta){if(Editing){draft=PoseCorrection.FromDisplay(Offset+delta,pet.FacingRight);Changed?.Invoke();}}
+    public void Nudge(Vector delta){if(Editing){draft=PoseCorrection.FromDisplay(Offset+delta/pet.CharacterScale,pet.FacingRight);Changed?.Invoke();}}
     public void Flip(){if(Active){pet.Face(!pet.FacingRight);Changed?.Invoke();}}
     public void Reset(){if(Editing){draft=new(0,0);Changed?.Invoke();}}
     public void Save()

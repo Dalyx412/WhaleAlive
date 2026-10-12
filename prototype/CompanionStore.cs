@@ -19,7 +19,8 @@ public sealed class CompanionData
     public Dictionary<string,JsonElement>? LegacyData {get;set;}
     public List<PetNote> Todos { get; set; } = [];
     public List<SavedItem> Files { get; set; } = [];
-    double uiScale=1;
+    double uiScale=1,characterScale=1;
+    public double CharacterScale {get=>characterScale;set=>characterScale=value==2?2:1;}
     public double UiScale {get=>uiScale;set=>uiScale=value==2?2:1;}
     public bool Quiet { get; set; }
     public AutonomousSettings Autonomy {get;set;} = new();

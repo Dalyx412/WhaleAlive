@@ -2,7 +2,9 @@ using System.Windows;
 
 namespace WhaleAlive;
 
-// Corrections are stored in local display units for the left-facing art; right mirrors X.
+// Canonical units are local display DIPs at CharacterScale=1 (128px base canvas),
+// NOT 256px source pixels. Render multiplies by CharacterScale; input divides by it.
+// The left-facing convention also applies to independent right-facing values; right mirrors X.
 public sealed record PoseCorrection(double X, double Y)
 {
     // Approved visual alignment, measured against the top of desktop icons.
@@ -35,7 +37,7 @@ public sealed class PoseCalibration : IDisposable
     public PoseCalibration(PetWindow pet,Interaction engine,CompanionStore store,IDesktopSeatSource? seats=null)
     {
         this.pet=pet;this.engine=engine;this.store=store;this.seats=seats??new DesktopSeats();
-        nativeSeats=seats==null;pet.PoseOffset=RenderOffset;pet.CarryOffset=StandingOffset;
+        nativeSeats=seats==null;pet.PoseOffset=RenderOffset;pet.CarryOffset=StandingOffset;pet.CharacterScaleChanged+=UpdateStanding;
     }
     internal Vector RenderOffset(string clip,bool right)
     {
@@ -97,7 +99,7 @@ public sealed class PoseCalibration : IDisposable
     public void Nudge(Vector delta)
     {
         if(!Active)return;
-        draft=PoseCorrection.FromDisplay(Offset+delta,pet.FacingRight);UpdateStanding();Changed?.Invoke();
+        draft=PoseCorrection.FromDisplay(Offset+delta/pet.CharacterScale,pet.FacingRight);UpdateStanding();Changed?.Invoke();
     }
     public void Flip() {if(Active){pet.Face(!pet.FacingRight);UpdateStanding();Changed?.Invoke();}}
     public void Reset() {if(Active){draft=new(0,0);UpdateStanding();Changed?.Invoke();}}
@@ -135,5 +137,5 @@ public sealed class PoseCalibration : IDisposable
     {
         completion?.TrySetResult();try {await running;} catch(OperationCanceledException) {}
     }
-    public void Dispose(){completion?.TrySetResult();pet.EndDrag();pet.CalibrationDrag=null;pet.CalibrationFrame=null;pet.PoseOffset=null;pet.CarryOffset=null;}
+    public void Dispose(){pet.CharacterScaleChanged-=UpdateStanding;completion?.TrySetResult();pet.EndDrag();pet.CalibrationDrag=null;pet.CalibrationFrame=null;pet.PoseOffset=null;pet.CarryOffset=null;}
 }

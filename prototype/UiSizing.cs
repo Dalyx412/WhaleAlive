@@ -25,6 +25,20 @@ internal static class UiSizing
         window.Width=bounds.Width;window.Height=bounds.Height;window.Left=bounds.Left;window.Top=bounds.Top;
         if(WindowChrome.GetWindowChrome(window) is {} chrome)chrome.CaptionHeight=50*scale;
     }
+    // Speech must clear the character and every todo bubble individually: a union box
+    // pushes it far from the head, and ignoring todos lets it cover the top of the arc.
+    internal static Rect Beside(Rect preferred,Rect character,IReadOnlyList<Rect> others,Rect work,double gap)
+    {
+        var blockers=others.Where(r=>r.Width>0&&r.Height>0).ToArray();
+        if(blockers.Length==0)return Beside(preferred,character,work,gap);
+        double w=preferred.Width,h=preferred.Height,head=character.Top-gap-h;
+        bool othersLeft=blockers.Average(r=>r.Left+r.Width/2)<character.Left+character.Width/2;
+        double clearX=othersLeft?blockers.Max(r=>r.Right)+gap:blockers.Min(r=>r.Left)-gap-w;
+        double aboveAll=Math.Min(character.Top,blockers.Min(r=>r.Top))-gap-h;
+        var candidates=new[]{preferred,new Rect(clearX,preferred.Y,w,h),new Rect(preferred.X,head,w,h),new Rect(clearX,head,w,h),new Rect(preferred.X,aboveAll,w,h),
+            new Rect(othersLeft?character.Right+gap:character.Left-gap-w,preferred.Y,w,h),new Rect(preferred.X,character.Bottom+gap,w,h)}.Select(r=>Clamp(r,work)).ToArray();
+        return candidates.FirstOrDefault(r=>!r.IntersectsWith(character)&&!blockers.Any(b=>b.IntersectsWith(r)),candidates[0]);
+    }
     internal static Rect Beside(Rect preferred,Rect character,Rect work,double gap)
     {
         var candidates=new[]{preferred,new Rect(preferred.X,character.Top-gap-preferred.Height,preferred.Width,preferred.Height),

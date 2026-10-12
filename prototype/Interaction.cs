@@ -45,7 +45,7 @@ public sealed class Interaction
     }
     async Task RunWander(CancellationTokenSource cts)
     {
-        try { var p = pet.Anchor; var w = DisplayGeometry.WorkArea(pet, p); var dest = new Point(Math.Clamp(p.X + Random.Shared.Next(-250, 251), w.Left + 100, w.Right - 120), Math.Clamp(p.Y, w.Top + 220, w.Bottom - 20)); bool run = Random.Shared.Next(4) == 0; bool brake = run && Random.Shared.NextDouble() < .3; await pet.WalkTo(dest, cts.Token, run: run, brake: brake); }
+        try { var p = pet.Anchor; var w = DisplayGeometry.WorkArea(pet, p); var dest = new Point(Math.Clamp(p.X + Random.Shared.Next(-250, 251), w.Left + pet.CharacterPixels(100), Math.Max(w.Left + pet.CharacterPixels(100),w.Right - pet.CharacterPixels(120))), Math.Clamp(p.Y, w.Top + pet.CharacterPixels(220), Math.Max(w.Top + pet.CharacterPixels(220),w.Bottom - 20))); bool run = Random.Shared.Next(4) == 0; bool brake = run && Random.Shared.NextDouble() < .3; await pet.WalkTo(dest, cts.Token, run: run, brake: brake); }
         catch (OperationCanceledException) { }
         finally { cts.Dispose(); wander = null; if (!pet.IsDragging && !Busy) pet.SetState(AmbientState); }
     }
@@ -207,7 +207,7 @@ public sealed class Interaction
         {
             Report("让我看看鼠标在哪里…", 0);
             await pet.PlayOnce("notice", cts.Token);
-            var p = CursorControl.Position(); await pet.WalkTo(pet.FromPixels(new Point(p.X, p.Y)) + new Vector(-30, 75) * PetWindow.VisualScale, cts.Token);
+            var p = CursorControl.Position(); await pet.WalkTo(pet.FromPixels(new Point(p.X, p.Y)) + new Vector(-30, 75) * PetWindow.VisualScale * pet.CharacterScale, cts.Token);
             cts.Token.ThrowIfCancellationRequested(); if (!AllowCursor) throw new OperationCanceledException();
             await pet.PlayOnce("grab", cts.Token);
             for (int n = 3; n > 0; n--) { Report($"{n} 秒后牵一下鼠标；快速移动或点击可挣脱。", 0); await Task.Delay(1000, cts.Token); }

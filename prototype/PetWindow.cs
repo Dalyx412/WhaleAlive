@@ -12,8 +12,9 @@ namespace WhaleAlive;
 public sealed partial class PetWindow : Window
 {
     public const double VisualScale = .5;
-    const double SpriteSize = 256 * VisualScale, AnchorX = 140, AnchorY = 195;
-    readonly Image sprite = new() { Width = SpriteSize, Height = SpriteSize };
+    const double BaseSpriteSize = 256 * VisualScale, AnchorX = 140, AnchorY = 195;
+    double SpriteSize => BaseSpriteSize * CharacterScale;
+    readonly Image sprite = new() { Width = BaseSpriteSize, Height = BaseSpriteSize };
     readonly Image attachment = new() { Width = 34 * VisualScale, Height = 34 * VisualScale, Visibility = Visibility.Hidden, IsHitTestVisible = false };
     readonly TextBlock speech = new() { FontSize = 12, Foreground = Brushes.White, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center };
     readonly Border bubble;
@@ -54,6 +55,28 @@ public sealed partial class PetWindow : Window
     public bool SpeechVisible => bubble.Visibility == Visibility.Visible;
     internal bool TodoBubblesVisible=>todoBubbles.Visibility==Visibility.Visible;
     internal string DisplayedSpeech => speech.Text;
+    public double CharacterScale {get;private set;}=1;
+    public event Action? CharacterScaleChanged;
+    public double CharacterPixels(double units)=>units*CharacterScale;
+    public Vector CharacterPixels(Vector units)=>units*CharacterScale;
+    public void SetCharacterScale(double value)
+    {
+        value=value==2?2:1;if(CharacterScale==value)return;CharacterScale=value;
+        RenderFrame();PositionTodoBubbles();PositionSpeech();CharacterScaleChanged?.Invoke();
+    }
+    internal Point CanvasAnchor=>canvasAnchor;
+    internal Image SpriteView=>sprite;
+    internal Image AttachmentView=>attachment;
+    readonly bool offscreen;
+    internal Rect LocalWorkArea
+    {
+        get{if(offscreen)return viewport;var work=DisplayGeometry.WorkArea(this,anchor);return new Rect(PointFromScreen(ToPixels(work.TopLeft)),PointFromScreen(ToPixels(work.BottomRight)));}
+    }
+    internal void ArrangeOffscreen(Point point,Size size)
+    {
+        viewport=new Rect(size);anchor=canvasAnchor=point;RenderFrame();PositionTodoBubbles();PositionSpeech();
+        var view=(FrameworkElement)Content;view.Width=size.Width;view.Height=size.Height;view.Measure(size);view.Arrange(new Rect(size));view.UpdateLayout();
+    }
     public double UiScale {get;private set;}=1;
     public event Action? UiScaleChanged;
     internal FrameworkElement SpeechView=>bubble;
@@ -70,14 +93,17 @@ public sealed partial class PetWindow : Window
     void PositionSpeech()
     {
         if(viewport.IsEmpty||viewport.Width==0)return;
-        var work=DisplayGeometry.WorkArea(this,anchor);
-        var local=new Rect(PointFromScreen(ToPixels(work.TopLeft)),PointFromScreen(ToPixels(work.BottomRight)));
+        var local=LocalWorkArea;
         bubble.MaxHeight=Math.Max(1,(local.Height-16)/UiScale);bubble.Measure(new Size(double.PositiveInfinity,double.PositiveInfinity));
         var size=bubble.DesiredSize;
-        var preferred=new Rect(canvasAnchor.X-size.Width/2,canvasAnchor.Y-183, size.Width,size.Height);
-        var placed=UiSizing.Beside(preferred,CharacterBox,local,12*UiScale);
+        var preferred=new Rect(canvasAnchor.X-size.Width/2,SpeechTop(canvasAnchor,CharacterBox,CharacterScale), size.Width,size.Height);
+        double todoLeft=Canvas.GetLeft(todoBubbles),todoTop=Canvas.GetTop(todoBubbles);
+        var todos=double.IsFinite(todoLeft)&&double.IsFinite(todoTop)?todoLayout.Select(r=>new Rect(r.X+todoLeft,r.Y+todoTop,r.Width,r.Height)).ToArray():[];
+        var placed=UiSizing.Beside(preferred,CharacterBox,todos,local,12*UiScale);
         Canvas.SetLeft(bubble,placed.Left);Canvas.SetTop(bubble,placed.Top);
     }
+    internal static double SpeechTop(Point anchor,Rect box,double scale)
+        => scale==1 ? anchor.Y-183 : box.Top-(183-(anchor.Y-box.Top)/scale);
     public double SpriteDisplaySize => SpriteSize * catalog.Clips[clipKey].DisplayScale;
     public double ReferenceCharacterHeight => SpriteDisplaySize * catalog.Clips[clipKey].ReferenceHeight;
     public Point Anchor => anchor;
@@ -93,9 +119,9 @@ public sealed partial class PetWindow : Window
         ["think"]="curious", ["working"]="tidy", ["wait"]="idle", ["celebrate"]="proud",
         ["joy"]="proud", ["error"]="curious", ["disappointed"]="curious", ["drag"]="lifted"
     };
-    public PetWindow()
+    public PetWindow(bool offscreen=false)
     {
-        Icon = GlassAppearance.AppIcon;
+        this.offscreen=offscreen;Icon = GlassAppearance.AppIcon;
         Title = "Whale Alive · 桌宠"; Width = 280; Height = 275; WindowStyle = WindowStyle.None; ResizeMode = ResizeMode.NoResize;
         AllowsTransparency = true; Background = Brushes.Transparent; Topmost = true; ShowInTaskbar = false; ShowActivated = false;
         SourceInitialized += (_, _) => ConfigureViewport();
@@ -115,11 +141,12 @@ public sealed partial class PetWindow : Window
         canvas.Children.Add(bubble); Canvas.SetTop(bubble, 12); Canvas.SetLeft(bubble, 35);
         canvas.Children.Add(sprite); canvas.Children.Add(attachment);
         InitializeCompanionVisuals(canvas);
+        // Clip DisplayScale may be fractional even at 2x; retain high-quality resampling.
         RenderOptions.SetBitmapScalingMode(sprite, BitmapScalingMode.HighQuality);
         InitializePointer();
         // Drag/drop must never decode PNGs in the mouse-down/up handler, even after a long idle session.
         catalog.Pin("idle", false); catalog.Pin("lifted", false); catalog.Pin("lifted", true);
-        timer.Tick += (_, _) => { RenderFrame(); AnimateSpeech(); AnimateCompanionVisuals(); }; timer.Start(); Closed += (_, _) => {holdTimer.Stop();timer.Stop();Microsoft.Win32.SystemEvents.DisplaySettingsChanged-=DisplaySettingsChanged;};
+        timer.Tick += (_, _) => { RenderFrame(); AnimateSpeech(); AnimateCompanionVisuals(); }; if(!offscreen)timer.Start(); Closed += (_, _) => {holdTimer.Stop();timer.Stop();Microsoft.Win32.SystemEvents.DisplaySettingsChanged-=DisplaySettingsChanged;};
         var work = SystemParameters.WorkArea; SetAnchor(new(work.Right - 190, work.Bottom - 30));
         SetState("idle", true); Say("你好呀，今天也陪着你。");
     }
@@ -172,7 +199,7 @@ public sealed partial class PetWindow : Window
         sprite.Width = sprite.Height = size;
         var pivot = SurfacePivot(clipKey,f,right);
         double x = canvasAnchor.X - pivot.X * size, y = canvasAnchor.Y - pivot.Y * size;
-        var adjustment = (SurfaceOffset??PoseOffset)?.Invoke(clipKey, right) ?? new Vector();
+        var adjustment = CharacterPixels((SurfaceOffset??PoseOffset)?.Invoke(clipKey, right) ?? new Vector());
         x += adjustment.X; y += adjustment.Y;
         Canvas.SetLeft(sprite, x); Canvas.SetTop(sprite, y);
         var hand = HandPoint(clipKey, f, c.Count);
@@ -180,7 +207,7 @@ public sealed partial class PetWindow : Window
         Canvas.SetLeft(attachment, x + hand.X * size - attachment.Width / 2);
         Canvas.SetTop(attachment, y + hand.Y * size - attachment.Height / 2);
     }
-    static Point HandPoint(string key, int frame, int count)
+    internal static Point HandPoint(string key, int frame, int count)
     {
         if (key is "pickup" or "putdown")
         {
@@ -189,7 +216,7 @@ public sealed partial class PetWindow : Window
         }
         return new(.35, .56);
     }
-    Point SurfacePivot(string key,int frame,bool facingRight)
+    internal Point SurfacePivot(string key,int frame,bool facingRight)
     {
         var clip=catalog.Clips[key];
         // Keep the source canvas registered to its settled support point throughout
@@ -203,7 +230,7 @@ public sealed partial class PetWindow : Window
     {
         var clip=catalog.Clips[key];int frame=leaving?clip.Count-1:0;
         var correction=(SurfaceOffset??PoseOffset)?.Invoke(key,facingRight)??new Vector();
-        var delta=(clip.Pivot(frame,facingRight)-SurfacePivot(key,frame,facingRight))*(SpriteSize*clip.DisplayScale)+correction;
+        var delta=(clip.Pivot(frame,facingRight)-SurfacePivot(key,frame,facingRight))*(SpriteSize*clip.DisplayScale)+CharacterPixels(correction);
         // Convert local WPF units to the desktop coordinates used by movement.
         var dpi=VisualTreeHelper.GetDpi(this);
         return surface+new Vector(delta.X*dpi.DpiScaleX/DesktopScale,delta.Y*dpi.DpiScaleY/DesktopScale);
@@ -211,6 +238,7 @@ public sealed partial class PetWindow : Window
     public void SetAnchor(Point p)
     {
         anchor = p;
+        if(offscreen){canvasAnchor=p;RenderFrame();PositionTodoBubbles();PositionSpeech();return;}
         if(viewport.IsEmpty||viewport.Width==0)return;
         var physical=ToPixels(p);var dpi=VisualTreeHelper.GetDpi(this);
         canvasAnchor=new((physical.X-viewport.Left)/dpi.DpiScaleX,(physical.Y-viewport.Top)/dpi.DpiScaleY);
@@ -233,7 +261,7 @@ public sealed partial class PetWindow : Window
         finally{configuringViewport=false;}
     }
     [DllImport("user32.dll")]static extern int GetSystemMetrics(int index);
-    public Point CarryPosition(Point icon,string pose,bool facingRight)=>icon+(CarryOffset?.Invoke(pose,facingRight)??new Vector(facingRight?-24:24,45));
+    public Point CarryPosition(Point icon,string pose,bool facingRight)=>icon+CharacterPixels(CarryOffset?.Invoke(pose,facingRight)??new Vector(facingRight?-24:24,45));
     public void Face(bool faceRight)
     {
         if (right == faceRight) return;
@@ -310,6 +338,7 @@ public sealed partial class PetWindow : Window
         }
         attachment.Visibility = image is null ? Visibility.Hidden : Visibility.Visible;
     }
+    internal double MovementSpeed(bool running,bool carrying)=>CharacterPixels(running ? 210 : carrying ? 90 : 110);
     public async Task WalkTo(Point destination, CancellationToken ct, bool carrying = false, bool run = false, bool pulling = false, bool brake = false)
     {
         ct.ThrowIfCancellationRequested(); var start = Anchor; double distance = (destination - start).Length;
@@ -317,10 +346,10 @@ public sealed partial class PetWindow : Window
         right = pulling ? destination.X < start.X : destination.X > start.X;
         string key = pulling ? "pull" : carrying ? "carry_walk" : run ? "run" : "walk";
         bool running = key == "run"; brake &= running;
-        var c = catalog.Clips[key]; double speed = running ? 210 : carrying ? 90 : 110;
+        var c = catalog.Clips[key]; double routeScale=CharacterScale,speed = MovementSpeed(running,carrying);
         // Reserve the last part of the route for inertia during the braking pose.
         // The destination stays unchanged, including near a screen edge.
-        double glideDistance = brake ? Math.Min(32, distance * .35) : 0;
+        double glideDistance = brake ? Math.Min(CharacterPixels(32), distance * .35) : 0;
         var brakeStart = destination - (destination - start) * (glideDistance / distance);
         // Frames 29–48 are more running, not deceleration. Use whole gait loops instead.
         int exitStart = running ? 49 : c.LoopEnd + 1;
@@ -334,6 +363,8 @@ public sealed partial class PetWindow : Window
         while (true)
         {
             ct.ThrowIfCancellationRequested();
+            // Replan only after a live size change; fixed-scale timing stays identical.
+            if(CharacterScale!=routeScale){await WalkTo(destination,ct,carrying,run,pulling,brake);return;}
             double t = Math.Min(1, Stopwatch.GetElapsedTime(begin).TotalSeconds / trip.Duration);
             // A braking run keeps moving into the brake; only a normal stop eases out here.
             double ease = brake ? (t < .15 ? t*t/.2775 : (t-.075)/.925)
@@ -353,6 +384,7 @@ public sealed partial class PetWindow : Window
             while (true)
             {
                 ct.ThrowIfCancellationRequested();
+                if(CharacterScale!=routeScale){await WalkTo(destination,ct,carrying,run,pulling,brake);return;}
                 double t = Math.Min(1, Stopwatch.GetElapsedTime(glideBegin).TotalSeconds / glideSeconds);
                 SetAnchor(brakeStart + (destination - brakeStart) * (1 - (1-t)*(1-t)));
                 if (t >= 1) break;

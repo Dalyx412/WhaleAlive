@@ -8,18 +8,20 @@ public sealed partial class PetWindow
     readonly Canvas todoBubbles = new();
     Rect[] todoLayout=[];
     const double TodoWidth=136,TodoHeight=46,TodoGap=10,TodoArcDepth=44;
-    internal static Rect[] TodoArcLayout(Point anchor,Rect work,int count,double scale=1,Rect? character=null)
+    internal static Rect[] TodoArcLayout(Point anchor,Rect work,int count,double scale=1,Rect? character=null,double characterScale=1)
     {
         count=Math.Clamp(count,0,4);if(count==0)return [];
         double w=TodoWidth*scale,h=TodoHeight*scale,gap=TodoGap*scale,depth=TodoArcDepth*scale;
         double width=w+(count>1?depth:0),height=count*h+(count-1)*gap;
-        double x=anchor.X-45*scale-width,y=anchor.Y-65*scale-height/2;
+        var box=character??new Rect(anchor.X-64*characterScale,anchor.Y-128*characterScale,128*characterScale,128*characterScale);
+        double outward=(box.Width-box.Width/characterScale)/2;
+        double upward=(anchor.Y-box.Top)*(1-1/characterScale)/2;
+        double x=anchor.X-45*scale-width-outward,y=anchor.Y-65*scale-height/2-upward;
         bool onRight=x<work.Left+8&&anchor.X+45*scale+width<=work.Right-8;
         if(onRight)x=anchor.X+45*scale;
-        if(scale>1)
+        if(scale>1||characterScale>1)
         {
-            var box=character??new Rect(anchor.X-64,anchor.Y-128,128,128);
-            double left=Math.Min(anchor.X-45*scale,box.Left-12),right=Math.Max(anchor.X+45*scale,box.Right+12);
+            double left=Math.Min(anchor.X-45*scale-outward,box.Left-12),right=Math.Max(anchor.X+45*scale+outward,box.Right+12);
             onRight=left-width<work.Left+8&&right+width<=work.Right-8;x=onRight?right:left-width;
         }
         x=Math.Clamp(x,work.Left+8,Math.Max(work.Left+8,work.Right-width-8));
@@ -34,16 +36,15 @@ public sealed partial class PetWindow
     void PositionTodoBubbles()
     {
         if(viewport.IsEmpty||viewport.Width==0)return;
-        var work=DisplayGeometry.WorkArea(this,anchor);
-        var local=new Rect(PointFromScreen(ToPixels(work.TopLeft)),PointFromScreen(ToPixels(work.BottomRight)));
-        todoLayout=TodoArcLayout(canvasAnchor,new Rect(local.X,local.Y,local.Width,local.Height-(UiScale>1?4*UiScale:0)),todoBubbles.Children.Count,UiScale,CharacterBox);
-        if(todoLayout.Length==0){todoBubbles.Width=todoBubbles.Height=0;return;}
+        var local=LocalWorkArea;
+        todoLayout=TodoArcLayout(canvasAnchor,new Rect(local.X,local.Y,local.Width,local.Height-(UiScale>1?4*UiScale:0)),todoBubbles.Children.Count,UiScale,CharacterBox,CharacterScale);
+        if(todoLayout.Length==0){todoBubbles.Width=todoBubbles.Height=0;PositionSpeech();return;}
         double left=todoLayout.Min(r=>r.Left),top=todoLayout.Min(r=>r.Top);
         Canvas.SetLeft(todoBubbles,left);Canvas.SetTop(todoBubbles,top);
         todoBubbles.Width=todoLayout.Max(r=>r.Right)-left;
         todoBubbles.Height=todoLayout.Max(r=>r.Bottom)-top+4*UiScale;
         todoLayout=todoLayout.Select(r=>new Rect(r.X-left,r.Y-top,r.Width,r.Height)).ToArray();
-        AnimateCompanionVisuals();
+        AnimateCompanionVisuals();PositionSpeech();
     }
     void AnimateCompanionVisuals()
     {
@@ -77,6 +78,6 @@ public sealed partial class PetWindow
             var b=new Button{Content=content,Width=TodoWidth,Height=TodoHeight,ToolTip="点击完成："+note.Text,Background=new SolidColorBrush(Color.FromArgb(235,216,245,248)),Foreground=new SolidColorBrush(Color.FromRgb(26,74,85)),BorderThickness=new(0),Padding=new(8,5,8,5),FontSize=11};
             UiSizing.Apply(b,UiScale);b.Tag=note.Id;b.Click+=(_,_)=>complete(note.Id);todoBubbles.Children.Add(b);
         }
-        PositionTodoBubbles();
+        PositionTodoBubbles();if(CharacterScale>1)PositionSpeech();
     }
 }

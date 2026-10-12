@@ -71,13 +71,19 @@ public sealed class CompanionFeatures : IDisposable
     public void Tell(string text){Message=text;pet.Say(text);Changed?.Invoke();}
     public void Refresh()
     {
-        pet.SetUiScale(Store.Data.UiScale);pet.ShowTodos(Store.Data.Todos,CompleteTodo);
+        pet.SetCharacterScale(Store.Data.CharacterScale);pet.SetUiScale(Store.Data.UiScale);pet.ShowTodos(Store.Data.Todos,CompleteTodo);
         engine.Quiet=Store.Data.Quiet;engine.AllowSleep=Store.Data.Autonomy.Sleep;Changed?.Invoke();
     }
     public void SetUiScale(double value)
     {
         double previous=Store.Data.UiScale;Store.Data.UiScale=value;
         try{Store.Save();}catch{Store.Data.UiScale=previous;throw;}
+        Refresh();
+    }
+    public void SetCharacterScale(double value)
+    {
+        double previous=Store.Data.CharacterScale;Store.Data.CharacterScale=value;
+        try{Store.Save();}catch{Store.Data.CharacterScale=previous;throw;}
         Refresh();
     }
     void Tick()
@@ -103,7 +109,7 @@ public sealed class CompanionFeatures : IDisposable
         if(File.Exists(path))start.ArgumentList.Add("/select,"+Path.GetFullPath(path));else start.ArgumentList.Add(Path.GetFullPath(path));
         Process.Start(start);
     }
-    Point Limit(Point p){var w=DisplayGeometry.WorkArea(pet,p);return new(Math.Clamp(p.X,w.Left+100,w.Right-100),Math.Clamp(p.Y,w.Top+160,w.Bottom-45));}
+    Point Limit(Point p){var w=DisplayGeometry.WorkArea(pet,p);return new(Math.Clamp(p.X,w.Left+pet.CharacterPixels(100),Math.Max(w.Left+pet.CharacterPixels(100),w.Right-pet.CharacterPixels(100))),Math.Clamp(p.Y,w.Top+pet.CharacterPixels(160),Math.Max(w.Top+pet.CharacterPixels(160),w.Bottom-45)));}
     DesktopIcon FindIcon(string name)
     {
         using var shell=new ShellDesktop();var matches=shell.List().Where(i=>i.Id==name||i.Name.Equals(name,StringComparison.OrdinalIgnoreCase)).ToArray();
@@ -129,7 +135,7 @@ public sealed class CompanionFeatures : IDisposable
         for(int i=0;i<rounds;i++){
             var p=CursorControl.Position();var target=pet.FromPixels(new(p.X,p.Y));
             Tell(hide?"捉迷藏开始，看看你往哪里走～":"鼠标在这里！");
-            await pet.WalkTo(Limit(target+new Vector(55,70)),ct,run:true);
+            await pet.WalkTo(Limit(target+pet.CharacterPixels(new Vector(55,70))),ct,run:true);
             using var ripple=new PetScene(pet.ToPixels(target),"光标在这里",[],true,pet);ripple.Show();
             await pet.PlayOnce(hide?"peek":"wave",ct);
         }
@@ -137,7 +143,7 @@ public sealed class CompanionFeatures : IDisposable
     public Task GuideCursor(string iconName)=>engine.RunActivity(async ct=>{
         if(!engine.AllowCursor)throw new InvalidOperationException("请先开启短暂鼠标互动权限。");
         var icon=FindIcon(iconName);var target=pet.ToPixels(IconPoint(icon)+new Vector(0,22));
-        await pet.WalkTo(Limit(pet.FromPixels(target)+new Vector(55,50)),ct,run:true);
+        await pet.WalkTo(Limit(pet.FromPixels(target)+pet.CharacterPixels(new Vector(55,50))),ct,run:true);
         Tell("把指针带到图标旁；移动鼠标或点击即可取消。");
         using var marker=new PetScene(target,"指针目的地",[],true,pet);marker.Show();await Task.Delay(1000,ct);
         bool escaped=await CursorControl.Guide(new((int)target.X,(int)target.Y),ct,()=>engine.AllowCursor);
@@ -158,7 +164,7 @@ public sealed class CompanionFeatures : IDisposable
         var item=Store.KeepFile(path,"delivery");Refresh();
         Tell("收到一份新产物："+Path.GetFileName(item.Path));
         pet.Attach(FileImage(item.Path));pet.SetState("carry_idle");await Task.Delay(650,ct);
-        var w=DisplayGeometry.WorkArea(pet,pet.Anchor);await pet.WalkTo(new(w.Right-150,w.Bottom-80),ct,carrying:true);
+        var w=DisplayGeometry.WorkArea(pet,pet.Anchor);await pet.WalkTo(new(w.Right-pet.CharacterPixels(150),w.Bottom-80),ct,carrying:true);
         pet.Attach(null);Tell("产物送到了，在「文件与产物」里定位打开。");
     });
     static ImageSource? FileImage(string path)

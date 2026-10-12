@@ -15,9 +15,9 @@ public sealed class DesktopSeats : IDesktopSeatSource
         var seats = shell.VisibleSeats();
         return shell.List(false).Where(i => seats.ContainsKey(i.Name))
             .Select(i => new DesktopSeat(i.Id, i.Name, pet.FromPixels(seats[i.Name]), i.X, i.Y))
-            .Where(v => Fits(DisplayGeometry.WorkArea(pet, v.Surface), v.Surface)).ToArray();
+            .Where(v => Fits(DisplayGeometry.WorkArea(pet, v.Surface), v.Surface,pet.CharacterScale)).ToArray();
     }
-    static bool Fits(Rect work, Point p) => p.Y > work.Top + 210 && p.Y < work.Bottom - 65 && p.X > work.Left + 100 && p.X < work.Right - 110;
+    internal static bool Fits(Rect work, Point p,double scale=1) => p.Y > work.Top + 210*scale && p.Y < work.Bottom - 65*scale && p.X > work.Left + 100*scale && p.X < work.Right - 110*scale;
     public bool StillThere(DesktopSeat seat)
     {
         using var shell = new ShellDesktop();
