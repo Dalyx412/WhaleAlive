@@ -190,7 +190,7 @@ For a future implementation, merge this entry into the chosen Claude project's *
     "whale_alive": {
       "type": "stdio",
       "command": "node",
-      "args": ["C:/coding/WhaleAlive/bridge/mcp-server.mjs"]
+      "args": ["D:/coding/WhaleAlive/bridge/mcp-server.mjs"]
     }
   }
 }
@@ -199,7 +199,7 @@ For a future implementation, merge this entry into the chosen Claude project's *
 Equivalent future PowerShell command, run from that project root:
 
 ```powershell
-claude mcp add --transport stdio --scope project whale_alive -- node "C:/coding/WhaleAlive/bridge/mcp-server.mjs"
+claude mcp add --transport stdio --scope project whale_alive -- node "D:/coding/WhaleAlive/bridge/mcp-server.mjs"
 ```
 
 These are alternatives, not steps to run twice. Project scope writes `.mcp.json`; default/local and user scopes use `~/.claude.json`, so neither is appropriate here. Interactive Claude may request approval of the project MCP server. This does not grant WhaleAlive's movement permissions. See [Anthropic MCP registration and scopes](https://code.claude.com/docs/en/mcp#project-scope). No registration command was executed.
@@ -223,7 +223,7 @@ Example future **project-local** `.claude/settings.local.json` entry (merge, nev
   "hooks": {
     "PreToolUse": [{"matcher":"*","hooks":[{
       "type":"command","command":"node",
-      "args":["C:/coding/WhaleAlive/bridge/claude-hook.mjs"],"async":true
+      "args":["D:/coding/WhaleAlive/bridge/claude-hook.mjs"],"async":true
     }]}]
   }
 }

@@ -50,7 +50,7 @@ No forbidden verification mode was run; no real icon/mouse/window movement permi
 
 ## PNGs and machine-readable evidence
 
-All are beside the exe in `C:\coding\WhaleAlive\prototype\bin\Release\net9.0-windows\`:
+All are beside the exe in `prototype\bin\Release\net9.0-windows\`:
 
 - `char-scale-1x-idle.png`, `char-scale-2x-idle.png`
 - `char-scale-1x-icon-seat.png`, `char-scale-2x-icon-seat.png`
