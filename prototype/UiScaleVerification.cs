@@ -52,15 +52,28 @@ internal static class UiScaleVerification
         try
         {
             Check(original==1,"Legacy default");
-            foreach(double value in new[]{1d,2d,0d,-1d,1.5d,3d})
+            foreach(double value in new[]{1d,1.25d,1.5d,1.75d,2d,0d,-1d,1.3d,3d})
             {
-                File.WriteAllText(file,JsonSerializer.Serialize(new{UiScale=value}));Check(new CompanionStore(file).Data.UiScale==(value==2?2:1),"Invalid disk value not coerced");
-                store.Data.UiScale=value;store.Save();Check(new CompanionStore(file).Data.UiScale==(value==2?2:1),"Round trip failed");
+                double expected=value is 1 or 1.25 or 1.5 or 1.75 or 2?value:1;
+                File.WriteAllText(file,JsonSerializer.Serialize(new{UiScale=value}));Check(new CompanionStore(file).Data.UiScale==expected,$"Disk value {value} not coerced");
+                store.Data.UiScale=value;store.Save();Check(new CompanionStore(file).Data.UiScale==expected,$"Round trip {value} failed");
             }
             evidence.Add(new{test="legacy-default-valid-roundtrip-invalid-disk-coercion",pass=true});
             for(int i=0;i<4;i++)store.Data.Todos.Add(new("ui-"+i,"界面缩放测试待办 "+(i+1),DateTime.UtcNow));
             pet.SetAnchor(new(1100,700));pet.SetState("idle");pet.CalibrationFrame=0;pet.UpdateLayout();double spriteSize=pet.SpriteDisplaySize;var origin=pet.RenderedSpriteOrigin;
             var sizes=new Dictionary<string,Size>();
+            // Intermediate levels: speech and todo bubbles grow proportionally, character untouched.
+            pet.ShowTodos(Enumerable.Range(1,4).Select(i=>new PetNote(i.ToString(),"待办 "+i,DateTime.UtcNow)),_=>{});
+            foreach(double level in new[]{1.25,1.5,1.75})
+            {
+                features.SetUiScale(level);Check(pet.UiScale==level&&new CompanionStore(file).Data.UiScale==level,$"{level} not applied/saved");
+                pet.ShowTaskProgress("");pet.Say("你好呀，今天也陪着你。");pet.UpdateLayout();
+                Check(Math.Abs(pet.SpeechView.DesiredSize.Width-210*level)<1,$"{level} speech did not scale");
+                var todo=(FrameworkElement)((Canvas)pet.TodoView).Children[0];Check(Math.Abs(todo.DesiredSize.Width-136*level)<1,$"{level} todo did not scale");
+                Check(pet.SpriteDisplaySize==spriteSize&&pet.RenderedSpriteOrigin==origin,$"{level} changed character geometry");
+                if(level==1.5)Save(pet.SpeechView,"ui-scale-1.5x-speech",level);
+            }
+            evidence.Add(new{test="intermediate-ui-levels",pass=true});
             using var panel=new CompanionPanel(features,engine,()=>[]);panel.ShowAppearance();
             var host=new Border{Child=panel,Width=760,Height=700,Background=GlassAppearance.Surface};var outer=new Grid();outer.Children.Add(host);
             foreach(int scale in new[]{1,2})
@@ -108,9 +121,12 @@ internal static class UiScaleVerification
                 var work=DisplayGeometry.WindowWorkArea(window,pet);Check(work.Contains(new Rect(window.Left,window.Top,window.Width,window.Height)),"Actual settings outside work area");
                 Check(WindowChrome.GetWindowChrome(window).CaptionHeight==100&&window.MinHeight<=window.Height&&window.MinWidth<=window.Width,"Caption/min size");
                 Save(window.SettingsView,"ui-scale-2x-settings-clamped",2);
-                var toggle=Find<CheckBox>(window).Single(c=>Equals(c.Content,"界面放大到 200%"));toggle.IsChecked=false;window.UpdateLayout();
-                Check(store.Data.UiScale==1&&new CompanionStore(file).Data.UiScale==1&&WindowChrome.GetWindowChrome(window).CaptionHeight==50,"Switch did not save/apply 1x");
-                toggle.IsChecked=true;window.UpdateLayout();Check(store.Data.UiScale==2&&WindowChrome.GetWindowChrome(window).CaptionHeight==100,"Live 2x switch failed");
+                var select=Find<ComboBox>(window).Single(c=>Equals(c.Tag,"ui-size"));
+                Check(select.Items.Cast<ComboBoxItem>().Select(i=>i.Content).SequenceEqual(new object[]{"100%","125%","150%","175%","200%"}),"UI size levels");
+                void Pick(double level){select.SelectedItem=select.Items.Cast<ComboBoxItem>().Single(i=>Equals(i.Tag,level));window.UpdateLayout();}
+                Pick(1);Check(store.Data.UiScale==1&&new CompanionStore(file).Data.UiScale==1&&WindowChrome.GetWindowChrome(window).CaptionHeight==50,"Menu did not save/apply 100%");
+                Pick(1.5);Check(store.Data.UiScale==1.5&&new CompanionStore(file).Data.UiScale==1.5&&WindowChrome.GetWindowChrome(window).CaptionHeight==75&&work.Contains(new Rect(window.Left,window.Top,window.Width,window.Height)),"Menu did not save/apply 150%");
+                Pick(2);Check(store.Data.UiScale==2&&WindowChrome.GetWindowChrome(window).CaptionHeight==100,"Live 200% selection failed");
                 Check(work.Contains(new Rect(window.Left,window.Top,window.Width,window.Height)),"Live switch lost window bounds");
                 evidence.Add(new{test="actual-settings-clamp-titlebar-minimums-and-live-switch-persistence",pass=true});
             }

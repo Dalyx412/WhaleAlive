@@ -5,6 +5,9 @@ namespace WhaleAlive;
 
 internal static class UiSizing
 {
+    internal static readonly double[] UiLevels={1,1.25,1.5,1.75,2};
+    // Anything not one of the offered levels (old/edited files) falls back to 100%.
+    internal static double CoerceUi(double value)=>UiLevels.FirstOrDefault(l=>Math.Abs(l-value)<.001,1);
     internal static void Apply(FrameworkElement root,double scale)
     {
         if(root.LayoutTransform is not ScaleTransform current||current.ScaleX!=scale||current.ScaleY!=scale)root.LayoutTransform=new ScaleTransform(scale,scale);

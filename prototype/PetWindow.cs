@@ -86,7 +86,7 @@ public sealed partial class PetWindow : Window
     internal Rect CharacterBox{get{var c=catalog.Clips["idle"];double size=SpriteSize*c.DisplayScale;var p=c.Pivot(0,false);return new(canvasAnchor.X-p.X*size,canvasAnchor.Y-p.Y*size,size,size);}}
     public void SetUiScale(double value)
     {
-        value=value==2?2:1;if(UiScale==value)return;UiScale=value;UiSizing.Apply(bubble,value);
+        value=UiSizing.CoerceUi(value);if(UiScale==value)return;UiScale=value;UiSizing.Apply(bubble,value);
         foreach(FrameworkElement child in todoBubbles.Children)UiSizing.Apply(child,value);
         PositionTodoBubbles();PositionSpeech();UiScaleChanged?.Invoke();
     }

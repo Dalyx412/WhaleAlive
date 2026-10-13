@@ -21,7 +21,7 @@ public sealed class CompanionData
     public List<SavedItem> Files { get; set; } = [];
     double uiScale=1,characterScale=1;
     public double CharacterScale {get=>characterScale;set=>characterScale=value==2?2:1;}
-    public double UiScale {get=>uiScale;set=>uiScale=value==2?2:1;}
+    public double UiScale {get=>uiScale;set=>uiScale=UiSizing.CoerceUi(value);}
     public bool Quiet { get; set; }
     public AutonomousSettings Autonomy {get;set;} = new();
     public SocialMusicSettings SocialMusic {get;set;} = new();
